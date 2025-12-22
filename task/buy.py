@@ -48,6 +48,8 @@ def buy_stream(
     tickets_info["deliver_info"] = json.dumps(tickets_info["deliver_info"])
     logger.info(f"使用代理：{https_proxys}")
     _request = BiliRequest(cookies=cookies, proxy=https_proxys)
+    _request_direct = BiliRequest(cookies=cookies, proxy="none")
+    logger.info("已启用混合代理模式：订单准备使用代理，创建订单及支付使用直连")
 
     if "is_hot_project" in tickets_info:
         is_hot_project = tickets_info["is_hot_project"]
@@ -128,7 +130,7 @@ def buy_stream(
                             "https://show.bilibili.com/api/ticket/order/createV2"
                         )
                         url += "&ptoken=" + request_result["data"]["ptoken"]
-                    ret = _request.post(
+                    ret = _request_direct.post(
                         url=url,
                         data=payload,
                         isJson=True,
@@ -179,7 +181,7 @@ def buy_stream(
 
                 yield "3）抢票成功，弹出付款二维码"
                 qrcode_url = get_qrcode_url(
-                    _request,
+                    _request_direct,
                     request_result["data"]["orderId"],
                 )
                 qr_gen = qrcode.QRCode()
