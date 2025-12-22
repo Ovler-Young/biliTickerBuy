@@ -10,11 +10,10 @@ RUN apt-get update && \
     fc-cache -fv && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-RUN curl -sSf https://sh.rustup.rs  | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 ENV TZ=Asia/Shanghai
 COPY requirements.txt .
-RUN python -m pip install --no-cache-dir -r requirements.txt  -i https://pypi.tuna.tsinghua.edu.cn/simple
+RUN uv pip install --system --no-cache -r requirements.txt
 COPY . .
 RUN apt-get update --allow-unauthenticated && \
     apt-get install -y --allow-unauthenticated --no-install-recommends \
