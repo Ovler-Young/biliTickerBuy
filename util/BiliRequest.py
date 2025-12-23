@@ -17,7 +17,14 @@ class BiliRequest:
         )
         if len(self.proxy_list) == 0:
             raise ValueError("at least have none proxy")
+
+        # 将 "none" 移动到列表末尾，实现优先使用代理，直连兜底
+        if "none" in self.proxy_list:
+            self.proxy_list.remove("none")
+            self.proxy_list.append("none")
+
         self.now_proxy_idx = 0
+        self._apply_proxy()  # 初始化时立即应用第一个代理
         self.cookieManager = CookieManager(cookies_config_path, cookies)
         self.headers = headers or {
             "accept": "*/*",
@@ -63,10 +70,8 @@ class BiliRequest:
             raise RuntimeError("当前未登录，请重新登陆")
         return response
 
-    def switch_proxy(self):
-        self.now_proxy_idx = (self.now_proxy_idx + 1) % len(self.proxy_list)
+    def _apply_proxy(self):
         current_proxy = self.proxy_list[self.now_proxy_idx]
-
         if current_proxy == "none":
             self.session.proxies = {}  # 不使用任何代理，直连
         else:
@@ -74,6 +79,10 @@ class BiliRequest:
                 "http": current_proxy,
                 "https": current_proxy,
             }
+
+    def switch_proxy(self):
+        self.now_proxy_idx = (self.now_proxy_idx + 1) % len(self.proxy_list)
+        self._apply_proxy()
 
     def post(self, url, data=None, isJson=False):
         self.headers["cookie"] = self.cookieManager.get_cookies_str()
