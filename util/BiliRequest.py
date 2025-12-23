@@ -82,6 +82,12 @@ class BiliRequest:
 
     def switch_proxy(self):
         self.now_proxy_idx = (self.now_proxy_idx + 1) % len(self.proxy_list)
+        # 强制重建 Session 以断开长连接，确保触发代理池旋转
+        try:
+            self.session.close()
+        except Exception:
+            pass
+        self.session = requests.Session()
         self._apply_proxy()
 
     def post(self, url, data=None, isJson=False):
