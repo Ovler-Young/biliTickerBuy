@@ -36,6 +36,7 @@ def buy_stream(
     interval,
     notifier_config,
     https_proxys,
+    ipv6_controller_url="",
     show_random_message=True,
 ):
     isRunning = True
@@ -47,7 +48,11 @@ def buy_stream(
     tickets_info["buyer_info"] = json.dumps(tickets_info["buyer_info"])
     tickets_info["deliver_info"] = json.dumps(tickets_info["deliver_info"])
     logger.info(f"使用代理：{https_proxys}")
-    _request = BiliRequest(cookies=cookies, proxy=https_proxys)
+    if ipv6_controller_url:
+        logger.info(f"IPv6 Controller: {ipv6_controller_url}")
+    _request = BiliRequest(
+        cookies=cookies, proxy=https_proxys, ipv6_controller_url=ipv6_controller_url
+    )
     _request_direct = BiliRequest(cookies=cookies, proxy="none")
     logger.info("已启用混合代理模式：订单准备使用代理，创建订单及支付使用直连")
 
@@ -119,7 +124,7 @@ def buy_stream(
                 if not isRunning:
                     yield "抢票结束"
                     break
-                
+
                 request_start_time = time.time()
                 try:
                     url = f"{base_url}/api/ticket/order/createV2?project_id={tickets_info['project_id']}"
@@ -220,6 +225,7 @@ def buy(
     ntfy_url=None,
     ntfy_username=None,
     ntfy_password=None,
+    ipv6_controller_url="",
     show_random_message=True,
 ):
     # 创建NotifierConfig对象
@@ -240,6 +246,7 @@ def buy(
         interval,
         notifier_config,
         https_proxys,
+        ipv6_controller_url,
         show_random_message,
     ):
         logger.info(msg)
@@ -259,6 +266,7 @@ def buy_new_terminal(
     ntfy_url=None,
     ntfy_username=None,
     ntfy_password=None,
+    ipv6_controller_url="",
     show_random_message=True,
     terminal_ui="网页",
 ) -> subprocess.Popen:
@@ -304,6 +312,8 @@ def buy_new_terminal(
         command.extend(["--ntfy_password", ntfy_password])
     if https_proxys:
         command.extend(["--https_proxys", https_proxys])
+    if ipv6_controller_url:
+        command.extend(["--ipv6_controller_url", ipv6_controller_url])
     if not show_random_message:
         command.extend(["--hide_random_message"])
     if terminal_ui == "网页":

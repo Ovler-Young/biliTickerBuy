@@ -90,6 +90,12 @@ def main():
         default=os.environ.get("BTB_HTTPS_PROXYS", "none"),
         help="HTTPS proxy, e.g. http://127.0.0.1:8080",
     )
+    buy_core.add_argument(
+        "--ipv6_controller_url",
+        type=str,
+        default=os.environ.get("BTB_IPV6_CONTROLLER_URL", ""),
+        help="IPv6 controller API URL, e.g. http://admin:password@127.0.0.1:21992",
+    )
 
     # ===== Notifications =====
     notify = buy_parser.add_argument_group("Notification Options")

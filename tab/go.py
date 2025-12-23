@@ -167,6 +167,104 @@ def go_tab(demo: gr.Blocks):
                 inputs=[https_proxy_ui, test_timeout_ui],
                 outputs=test_result_ui,
             )
+
+            # IPv6 Controller configuration
+            gr.Markdown(
+                """
+                ---
+                ### 🔄 IPv6 轮换控制器 (http-proxy-ipv6-pool)
+
+                如果你使用 [http-proxy-ipv6-pool](https://github.com/example/http-proxy-ipv6-pool) 服务，
+                可以配置控制器 API，在遇到 412 风控时自动轮换 IPv6 地址。
+                """
+            )
+
+            ipv6_controller_url_ui = gr.Textbox(
+                label="IPv6 Controller API 地址｜输入完成后，回车键保存",
+                info="例如: http://admin:password@127.0.0.1:21992",
+                value=(ConfigDB.get("ipv6_controller_url") or ""),
+            )
+
+            ipv6_stable_proxy_ui = gr.Textbox(
+                label="IPv6 Stable Proxy 地址｜输入完成后，回车键保存",
+                info="例如: http://admin:password@127.0.0.1:21991",
+                value=(ConfigDB.get("ipv6_stable_proxy") or ""),
+            )
+
+            def input_ipv6_controller_url(_url):
+                ConfigDB.insert("ipv6_controller_url", _url)
+                return gr.update(value=ConfigDB.get("ipv6_controller_url"))
+
+            def input_ipv6_stable_proxy(_url):
+                ConfigDB.insert("ipv6_stable_proxy", _url)
+                return gr.update(value=ConfigDB.get("ipv6_stable_proxy"))
+
+            ipv6_controller_url_ui.submit(
+                fn=input_ipv6_controller_url,
+                inputs=ipv6_controller_url_ui,
+                outputs=ipv6_controller_url_ui,
+            )
+
+            ipv6_stable_proxy_ui.submit(
+                fn=input_ipv6_stable_proxy,
+                inputs=ipv6_stable_proxy_ui,
+                outputs=ipv6_stable_proxy_ui,
+            )
+
+            with gr.Row():
+                test_ipv6_btn = gr.Button("🔍 测试 IPv6 Controller 连接")
+                rotate_ipv6_btn = gr.Button("🔄 手动轮换 IPv6")
+
+            ipv6_test_result_ui = gr.Textbox(
+                label="IPv6 测试结果",
+                lines=12,
+                max_lines=20,
+                interactive=False,
+                placeholder="点击上方按钮开始测试 IPv6 Controller...",
+            )
+
+            def test_ipv6_controller_fn(controller_url, stable_proxy_url, timeout):
+                """Test IPv6 controller connectivity"""
+                try:
+                    from util.IPv6ControllerClient import test_ipv6_controller
+
+                    if not controller_url or controller_url.strip() == "":
+                        return "❌ 请先填写 IPv6 Controller API 地址"
+                    if not stable_proxy_url or stable_proxy_url.strip() == "":
+                        return "❌ 请先填写 IPv6 Stable Proxy 地址"
+                    return test_ipv6_controller(
+                        controller_url, stable_proxy_url, int(timeout)
+                    )
+                except Exception as e:
+                    return f"❌ 测试过程中发生错误: {str(e)}"
+
+            def rotate_ipv6_fn(controller_url, stable_proxy_url, timeout):
+                """Rotate IPv6 and verify"""
+                try:
+                    from util.IPv6ControllerClient import rotate_and_verify
+
+                    if not controller_url or controller_url.strip() == "":
+                        return "❌ 请先填写 IPv6 Controller API 地址"
+                    if not stable_proxy_url or stable_proxy_url.strip() == "":
+                        return "❌ 请先填写 IPv6 Stable Proxy 地址"
+                    return rotate_and_verify(
+                        controller_url, stable_proxy_url, int(timeout)
+                    )
+                except Exception as e:
+                    return f"❌ 轮换过程中发生错误: {str(e)}"
+
+            test_ipv6_btn.click(
+                fn=test_ipv6_controller_fn,
+                inputs=[ipv6_controller_url_ui, ipv6_stable_proxy_ui, test_timeout_ui],
+                outputs=ipv6_test_result_ui,
+            )
+
+            rotate_ipv6_btn.click(
+                fn=rotate_ipv6_fn,
+                inputs=[ipv6_controller_url_ui, ipv6_stable_proxy_ui, test_timeout_ui],
+                outputs=ipv6_test_result_ui,
+            )
+
         with gr.Accordion(label="配置抢票成功后播放音乐[可选]", open=False):
             with gr.Row():
                 audio_path_ui = gr.Audio(
@@ -414,6 +512,7 @@ def go_tab(demo: gr.Blocks):
         interval,
         audio_path,
         https_proxys,
+        ipv6_controller_url,
         terminal_ui,
         hide_random_message,
     ):
@@ -474,12 +573,12 @@ def go_tab(demo: gr.Blocks):
                     ntfy_username=ConfigDB.get("ntfyUsername"),
                     ntfy_password=ConfigDB.get("ntfyPassword"),
                     https_proxys=",".join(assigned_proxies[assigned_proxies_next_idx]),
+                    ipv6_controller_url=ipv6_controller_url,
                     terminal_ui=terminal_ui,
                     show_random_message=not hide_random_message,
                 )
                 assigned_proxies_next_idx += 1
         gr.Info("正在启动，请等待抢票页面弹出。")
-
 
     go_btn = gr.Button("开始抢票")
 
@@ -535,6 +634,7 @@ def go_tab(demo: gr.Blocks):
             interval_ui,
             audio_path_ui,
             https_proxy_ui,
+            ipv6_controller_url_ui,
             terminal_ui,
             show_random_message_ui,
         ],

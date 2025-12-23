@@ -1,13 +1,20 @@
 import json
 import time
+from typing import Optional
 import loguru
 import requests
 from util.CookieManager import CookieManager
+from util.IPv6ControllerClient import IPv6ControllerClient
 
 
 class BiliRequest:
     def __init__(
-        self, headers=None, cookies=None, cookies_config_path=None, proxy: str = "none"
+        self,
+        headers=None,
+        cookies=None,
+        cookies_config_path=None,
+        proxy: str = "none",
+        ipv6_controller_url: str = "",
     ):
         self.session = requests.Session()
         self.proxy_list = (
@@ -37,6 +44,15 @@ class BiliRequest:
         }
         self.request_count = 0  # 记录请求次数
 
+        # IPv6 controller for automatic rotation on 412
+        self.ipv6_controller: Optional[IPv6ControllerClient] = None
+        if ipv6_controller_url:
+            try:
+                self.ipv6_controller = IPv6ControllerClient(ipv6_controller_url)
+                loguru.logger.info(f"IPv6 Controller 已配置: {ipv6_controller_url}")
+            except Exception as e:
+                loguru.logger.warning(f"IPv6 Controller 初始化失败: {e}")
+
     def count_and_sleep(self, threshold=60, sleep_time=60):
         """
         当记录到一定次数就sleep
@@ -59,10 +75,7 @@ class BiliRequest:
         response = self.session.get(url, data=data, headers=self.headers, timeout=10)
         if response.status_code == 412:
             self.count_and_sleep()
-            self.switch_proxy()
-            loguru.logger.warning(
-                f"412风控，切换代理到 {self.proxy_list[self.now_proxy_idx]}"
-            )
+            self._handle_412()
             return self.get(url, data, isJson)
         response.raise_for_status()
         self.clear_request_count()
@@ -84,6 +97,21 @@ class BiliRequest:
         self.now_proxy_idx = (self.now_proxy_idx + 1) % len(self.proxy_list)
         self._apply_proxy()
 
+    def _handle_412(self):
+        """Handle 412 rate limiting error by rotating IPv6 or switching proxy."""
+        if self.ipv6_controller:
+            try:
+                new_ip = self.ipv6_controller.rotate()
+                loguru.logger.warning(f"412风控，轮换 IPv6 到 {new_ip}")
+                return
+            except Exception as e:
+                loguru.logger.warning(f"IPv6 轮换失败 ({e})，回退到切换代理")
+        # Fallback to proxy switching
+        self.switch_proxy()
+        loguru.logger.warning(
+            f"412风控，切换代理到 {self.proxy_list[self.now_proxy_idx]}"
+        )
+
     def post(self, url, data=None, isJson=False):
         self.headers["cookie"] = self.cookieManager.get_cookies_str()
         if isJson:
@@ -94,10 +122,7 @@ class BiliRequest:
         response = self.session.post(url, data=data, headers=self.headers, timeout=10)
         if response.status_code == 412:
             self.count_and_sleep()
-            self.switch_proxy()
-            loguru.logger.warning(
-                f"412风控，切换代理到 {self.proxy_list[self.now_proxy_idx]}"
-            )
+            self._handle_412()
             return self.post(url, data, isJson)
         response.raise_for_status()
         self.clear_request_count()
@@ -112,5 +137,5 @@ class BiliRequest:
                 return "未登录"
             result = self.get("https://api.bilibili.com/x/web-interface/nav").json()
             return result["data"]["uname"]
-        except Exception as e:
+        except Exception:
             return "未登录"

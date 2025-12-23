@@ -97,6 +97,7 @@ def buy_cmd(args: Namespace):
         args.ntfy_url,
         args.ntfy_username,
         args.ntfy_password,
+        args.ipv6_controller_url,
         not args.hide_random_message,
     )
     logger.info("抢票完成后退出程序。。。。。")
