@@ -119,6 +119,8 @@ def buy_stream(
                 if not isRunning:
                     yield "抢票结束"
                     break
+                
+                request_start_time = time.time()
                 try:
                     url = f"{base_url}/api/ticket/order/createV2?project_id={tickets_info['project_id']}"
                     if is_hot_project:
@@ -148,15 +150,17 @@ def buy_stream(
                         break
                     yield f"[尝试 {attempt}/60]  [{err}]({ERRNO_DICT.get(err, '未知错误码')}) | {ret}"
 
-                    time.sleep(interval / 1000)
-
                 except RequestException as e:
                     yield f"[尝试 {attempt}/60] 请求异常: {e}"
-                    time.sleep(interval / 1000)
 
                 except Exception as e:
                     yield f"[尝试 {attempt}/60] 未知异常: {e}"
-                    time.sleep(interval / 1000)
+
+                # Fixed Rate 逻辑：从间隔中扣除网络请求消耗的时间
+                elapsed_ms = (time.time() - request_start_time) * 1000
+                sleep_time_ms = max(0, interval - elapsed_ms)
+                if sleep_time_ms > 0:
+                    time.sleep(sleep_time_ms / 1000)
             else:
                 if show_random_message:
                     yield f"群友说👴： {get_random_fail_message()}"
